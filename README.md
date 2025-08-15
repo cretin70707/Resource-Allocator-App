@@ -1,4 +1,4 @@
-# resource_allocator_app
+# Resource Allocator App
 
 A new Flutter project.
 
