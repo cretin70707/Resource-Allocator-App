@@ -1,0 +1,11 @@
+{
+    "cmake.sourceDirectory": "F:/Course/CSE323/Project/resource_allocator_app/windows",
+    "dart.flutterHotReloadOnSave": "all",
+    "dart.hotReloadOnSave": "all",
+    "files.autoSave": "afterDelay",
+    "files.autoSaveDelay": 1000,
+    "dart.previewFlutterUiGuides": true,
+    "dart.previewFlutterUiGuidesCustomTracking": true,
+    "dart.flutterCreateAndroidLanguage": "kotlin",
+    "dart.flutterCreateIOSLanguage": "swift"
+}
