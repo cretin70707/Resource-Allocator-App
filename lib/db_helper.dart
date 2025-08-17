@@ -50,10 +50,12 @@ class DatabaseHelper {
       request_id INTEGER PRIMARY KEY AUTOINCREMENT,  -- unique ID for each request
       user_id INTEGER NOT NULL,                      -- foreign key from users
       resource_id TEXT NOT NULL,                     -- foreign key from resources
+      quantity INTEGER NOT NULL,                     -- how many units requested
       request_priority INTEGER NOT NULL,             -- inherits from user's priority
-      burst_time INTEGER NOT NULL,                   -- usage duration
-      arrival_time TEXT NOT NULL,                    -- when the request was made
-      status TEXT DEFAULT 'pending',                 -- pending, approved, completed
+      burst_time INTEGER NOT NULL,                   -- usage duration in hours
+      arrival_time INTEGER NOT NULL,                 -- order of request arrival (1,2,3...)
+      status TEXT DEFAULT 'pending',                 -- pending, approved, completed etc.
+      created_at TEXT NOT NULL,                      -- timestamp when request was made
       FOREIGN KEY(user_id) REFERENCES users(id),
       FOREIGN KEY(resource_id) REFERENCES resources(resource_id)
 );
@@ -222,6 +224,10 @@ class DatabaseHelper {
     final resourceCount = await db.rawQuery('SELECT COUNT(*) as count FROM resources');
     print('Total resources: ${resourceCount.first['count']}');
     
+    // Get request count
+    final requestCount = await db.rawQuery('SELECT COUNT(*) as count FROM requests');
+    print('Total requests: ${requestCount.first['count']}');
+    
     // Print database path
     await printDatabasePath();
     
@@ -230,6 +236,18 @@ class DatabaseHelper {
     
     // Print all resources
     await printAllResources();
+    
+    // Print all requests
+    await printAllRequests();
+  }
+
+  Future<void> printAllRequests() async {
+    final db = await database;
+    final requests = await db.query('requests', orderBy: 'arrival_time ASC');
+    print('All requests in database:');
+    for (var request in requests) {
+      print('ID: ${request['request_id']}, User: ${request['user_id']}, Resource: ${request['resource_id']}, Qty: ${request['quantity']}, Priority: ${request['request_priority']}, Burst: ${request['burst_time']}hrs, Arrival: ${request['arrival_time']}, Status: ${request['status']}');
+    }
   }
 
   Future<void> printAllResources() async {
@@ -275,6 +293,233 @@ class DatabaseHelper {
       where: 'resource_id = ?',
       whereArgs: [resourceId],
     );
+  }
+
+  // Request management methods
+  Future<bool> createRequest(int userId, String resourceId, int quantity, int burstTime) async {
+    final db = await database;
+    
+    try {
+      // Get user priority
+      final user = await db.query('users', where: 'id = ?', whereArgs: [userId]);
+      if (user.isEmpty) return false;
+      
+      int userPriority = user.first['priority'] as int;
+      
+      // Get next arrival time (auto-increment)
+      final maxArrivalResult = await db.rawQuery('SELECT COALESCE(MAX(arrival_time), 0) + 1 as next_arrival FROM requests');
+      int nextArrival = maxArrivalResult.first['next_arrival'] as int;
+      
+      // Insert the request
+      await db.insert('requests', {
+        'user_id': userId,
+        'resource_id': resourceId,
+        'quantity': quantity,
+        'request_priority': userPriority,
+        'burst_time': burstTime,
+        'arrival_time': nextArrival,
+        'status': 'pending',
+        'created_at': DateTime.now().toIso8601String(),
+      });
+      
+      return true;
+    } catch (e) {
+      print('Error creating request: $e');
+      return false;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getAllRequests() async {
+    final db = await database;
+    return await db.query('requests', orderBy: 'arrival_time ASC');
+  }
+
+  Future<List<Map<String, dynamic>>> getUserRequests(int userId) async {
+    final db = await database;
+    return await db.query(
+      'requests',
+      where: 'user_id = ?',
+      whereArgs: [userId],
+      orderBy: 'arrival_time DESC',
+    );
+  }
+
+  Future<void> updateRequestStatus(int requestId, String status) async {
+    final db = await database;
+    await db.update(
+      'requests',
+      {'status': status},
+      where: 'request_id = ?',
+      whereArgs: [requestId],
+    );
+  }
+
+  // FCFS Scheduling Algorithm
+  Future<List<Map<String, dynamic>>> generateFCFSSchedule() async {
+    final db = await database;
+    
+    // Get all pending requests ordered by arrival_time (FCFS)
+    final requests = await db.rawQuery('''
+      SELECT r.*, u.name as user_name, res.resource_type 
+      FROM requests r
+      JOIN users u ON r.user_id = u.id
+      JOIN resources res ON r.resource_id = res.resource_id
+      WHERE r.status = 'pending'
+      ORDER BY r.arrival_time ASC
+    ''');
+    
+    return _generateScheduleFromRequests(requests);
+  }
+
+  // SJF Scheduling Algorithm
+  Future<List<Map<String, dynamic>>> generateSJFSchedule() async {
+    final db = await database;
+    
+    // Get all pending requests ordered by burst_time (SJF)
+    final requests = await db.rawQuery('''
+      SELECT r.*, u.name as user_name, res.resource_type 
+      FROM requests r
+      JOIN users u ON r.user_id = u.id
+      JOIN resources res ON r.resource_id = res.resource_id
+      WHERE r.status = 'pending'
+      ORDER BY r.burst_time ASC, r.arrival_time ASC
+    ''');
+    
+    return _generateScheduleFromRequests(requests);
+  }
+
+  // Priority Scheduling Algorithm
+  Future<List<Map<String, dynamic>>> generatePrioritySchedule() async {
+    final db = await database;
+    
+    // Get all pending requests ordered by priority (lower number = higher priority)
+    final requests = await db.rawQuery('''
+      SELECT r.*, u.name as user_name, res.resource_type 
+      FROM requests r
+      JOIN users u ON r.user_id = u.id
+      JOIN resources res ON r.resource_id = res.resource_id
+      WHERE r.status = 'pending'
+      ORDER BY r.request_priority ASC, r.arrival_time ASC
+    ''');
+    
+    return _generateScheduleFromRequests(requests);
+  }
+
+  // Common scheduling logic for all algorithms
+  Future<List<Map<String, dynamic>>> _generateScheduleFromRequests(List<Map<String, dynamic>> requests) async {
+    List<Map<String, dynamic>> schedule = [];
+    
+    // Working hours: 9 AM to 5 PM (8 hours per day)
+    const int workStartHour = 9;
+    const int workEndHour = 17;
+    const int workHoursPerDay = workEndHour - workStartHour; // 8 hours
+    
+    // Start from today
+    DateTime currentDate = DateTime.now();
+    int currentTimeSlot = 0; // Hours from 9 AM (0 = 9 AM, 1 = 10 AM, etc.)
+    
+    for (var request in requests) {
+      int burstTime = request['burst_time'] as int;
+      int remainingTime = burstTime;
+      
+      while (remainingTime > 0) {
+        // Calculate how much time we can allocate today
+        int availableTimeToday = workHoursPerDay - currentTimeSlot;
+        int timeToAllocate = remainingTime < availableTimeToday ? remainingTime : availableTimeToday;
+        
+        if (timeToAllocate > 0) {
+          // Calculate start and end times
+          int startHour = workStartHour + currentTimeSlot;
+          int endHour = startHour + timeToAllocate;
+          
+          // Format times
+          String startTime = _formatTime(startHour, 0);
+          String endTime = _formatTime(endHour, 0);
+          String dateStr = _formatDate(currentDate);
+          
+          schedule.add({
+            'request_id': request['request_id'],
+            'user_name': request['user_name'],
+            'resource_type': request['resource_type'],
+            'quantity': request['quantity'],
+            'date': dateStr,
+            'start_time': startTime,
+            'end_time': endTime,
+            'duration': timeToAllocate,
+            'arrival_time': request['arrival_time'],
+            'priority': request['request_priority'],
+            'burst_time': request['burst_time'],
+          });
+          
+          remainingTime -= timeToAllocate;
+          currentTimeSlot += timeToAllocate;
+        }
+        
+        // If we've reached end of day or allocated all time, move to next day
+        if (currentTimeSlot >= workHoursPerDay) {
+          currentDate = currentDate.add(const Duration(days: 1));
+          // Skip weekends (optional - you can remove this if you want 7-day scheduling)
+          while (currentDate.weekday > 5) {
+            currentDate = currentDate.add(const Duration(days: 1));
+          }
+          currentTimeSlot = 0;
+        }
+      }
+    }
+    
+    return schedule;
+  }
+
+  String _formatTime(int hour, int minute) {
+    String period = hour >= 12 ? 'PM' : 'AM';
+    int displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+    return '${displayHour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $period';
+  }
+
+  String _formatDate(DateTime date) {
+    List<String> months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${date.day}${_getOrdinalSuffix(date.day)} ${months[date.month - 1]}';
+  }
+
+  String _getOrdinalSuffix(int day) {
+    if (day >= 11 && day <= 13) return 'th';
+    switch (day % 10) {
+      case 1: return 'st';
+      case 2: return 'nd';
+      case 3: return 'rd';
+      default: return 'th';
+    }
+  }
+
+  // Export schedule to CSV
+  Future<String?> exportScheduleToCSV(List<Map<String, dynamic>> schedule, String algorithm) async {
+    try {
+      // Create CSV content
+      StringBuffer csv = StringBuffer();
+      
+      // Add header
+      csv.writeln('Algorithm,Request_ID,User_Name,Resource_Type,Quantity,Date,Start_Time,End_Time,Duration_Hours,Arrival_Time,Priority,Burst_Time');
+      
+      // Add data rows
+      for (var item in schedule) {
+        csv.writeln('$algorithm,${item['request_id']},${item['user_name']},${item['resource_type']},${item['quantity']},${item['date']},${item['start_time']},${item['end_time']},${item['duration']},${item['arrival_time']},${item['priority']},${item['burst_time']}');
+      }
+      
+      // Save to Downloads folder
+      String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+      String fileName = 'schedule_${algorithm.toLowerCase()}_$timestamp.csv';
+      String exportPath = '/storage/emulated/0/Download/$fileName';
+      
+      File csvFile = File(exportPath);
+      await csvFile.writeAsString(csv.toString());
+      
+      print('Schedule exported to: $exportPath');
+      return exportPath;
+    } catch (e) {
+      print('Error exporting schedule: $e');
+      return null;
+    }
   }
 
   // Export database to Downloads folder for easy access

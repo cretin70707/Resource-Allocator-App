@@ -189,15 +189,52 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
-                  onPressed: () {
+                  onPressed: () async {
                     Navigator.of(context).pop();
-                    // TODO: Submit request with quantity and duration
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Requested $quantity $resourceType for $durationHours ${durationHours == 1 ? 'hour' : 'hours'}'),
-                        backgroundColor: Colors.green,
-                      ),
+                    
+                    // Get current user
+                    final user = await _dbHelper.getCurrentUser();
+                    if (user == null) return;
+                    
+                    // Map resource type to resource ID
+                    String resourceId;
+                    switch (resourceType) {
+                      case 'Laptops':
+                        resourceId = 'L';
+                        break;
+                      case 'Chairs':
+                        resourceId = 'C';
+                        break;
+                      case 'Room':
+                        resourceId = 'R';
+                        break;
+                      default:
+                        resourceId = 'L';
+                    }
+                    
+                    // Submit request to database
+                    final success = await _dbHelper.createRequest(
+                      user['id'],
+                      resourceId,
+                      quantity,
+                      durationHours,
                     );
+                    
+                    if (success && mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Request submitted successfully!\n$quantity $resourceType for $durationHours ${durationHours == 1 ? 'hour' : 'hours'}'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    } else if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Failed to submit request. Please try again.'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
                   },
                   child: const Text('Submit Request'),
                 ),
