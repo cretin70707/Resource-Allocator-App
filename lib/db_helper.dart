@@ -47,10 +47,16 @@ class DatabaseHelper {
     ''');
     await db.execute('''
       CREATE TABLE requests (
-        req_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        req_type TEXT NOT NULL,
-        
-      )
+      request_id INTEGER PRIMARY KEY AUTOINCREMENT,  -- unique ID for each request
+      user_id INTEGER NOT NULL,                      -- foreign key from users
+      resource_id TEXT NOT NULL,                     -- foreign key from resources
+      request_priority INTEGER NOT NULL,             -- inherits from user's priority
+      burst_time INTEGER NOT NULL,                   -- usage duration
+      arrival_time TEXT NOT NULL,                    -- when the request was made
+      status TEXT DEFAULT 'pending',                 -- pending, approved, completed
+      FOREIGN KEY(user_id) REFERENCES users(id),
+      FOREIGN KEY(resource_id) REFERENCES resources(resource_id)
+);
     ''');
     
     
