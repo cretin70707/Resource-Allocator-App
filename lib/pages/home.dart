@@ -80,8 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _showResourceDialog(BuildContext context, String resourceType, IconData icon, Color iconColor) {
     int quantity = 1;
-    TimeOfDay startTime = const TimeOfDay(hour: 9, minute: 0);
-    TimeOfDay endTime = const TimeOfDay(hour: 17, minute: 0);
+    int durationHours = 1;
 
     showDialog(
       context: context,
@@ -125,78 +124,60 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 20),
                   
-                  // Time Selection
-                  const Text('Duration:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  // Duration Selection
+                  const Text('Duration (Hours):', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
                   
-                  // Start Time
+                  // Duration Hours
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Start Time:'),
-                      TextButton(
-                        onPressed: () async {
-                          TimeOfDay? picked = await showTimePicker(
-                            context: context,
-                            initialTime: startTime,
-                            builder: (context, child) {
-                              return MediaQuery(
-                                data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
-                                child: child!,
-                              );
+                      const Text('Hours:', style: TextStyle(fontSize: 14)),
+                      Row(
+                        children: [
+                          IconButton(
+                            onPressed: () {
+                              if (durationHours > 1) {
+                                setState(() {
+                                  durationHours--;
+                                });
+                              }
                             },
-                          );
-                          if (picked != null) {
-                            // Restrict to 9 AM - 5 PM
-                            if (picked.hour >= 9 && picked.hour <= 17) {
-                              setState(() {
-                                startTime = picked;
-                              });
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Please select time between 9 AM - 5 PM')),
-                              );
-                            }
-                          }
-                        },
-                        child: Text(startTime.format(context)),
+                            icon: const Icon(Icons.remove_circle_outline),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '$durationHours ${durationHours == 1 ? 'hour' : 'hours'}',
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () {
+                              if (durationHours < 8) { // Max 8 hours (9 AM - 5 PM)
+                                setState(() {
+                                  durationHours++;
+                                });
+                              }
+                            },
+                            icon: const Icon(Icons.add_circle_outline),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  
-                  // End Time
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('End Time:'),
-                      TextButton(
-                        onPressed: () async {
-                          TimeOfDay? picked = await showTimePicker(
-                            context: context,
-                            initialTime: endTime,
-                            builder: (context, child) {
-                              return MediaQuery(
-                                data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
-                                child: child!,
-                              );
-                            },
-                          );
-                          if (picked != null) {
-                            // Restrict to 9 AM - 5 PM and after start time
-                            if (picked.hour >= 9 && picked.hour <= 17) {
-                              setState(() {
-                                endTime = picked;
-                              });
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Please select time between 9 AM - 5 PM')),
-                              );
-                            }
-                          }
-                        },
-                        child: Text(endTime.format(context)),
-                      ),
-                    ],
+                  const SizedBox(height: 10),
+                  Text(
+                    'Available hours: 9 AM - 5 PM (max 8 hours)',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                      fontStyle: FontStyle.italic,
+                    ),
                   ),
                 ],
               ),
@@ -210,10 +191,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 ElevatedButton(
                   onPressed: () {
                     Navigator.of(context).pop();
-                    // TODO: Submit request with quantity, startTime, endTime
+                    // TODO: Submit request with quantity and duration
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Requested $quantity $resourceType from ${startTime.format(context)} to ${endTime.format(context)}'),
+                        content: Text('Requested $quantity $resourceType for $durationHours ${durationHours == 1 ? 'hour' : 'hours'}'),
                         backgroundColor: Colors.green,
                       ),
                     );

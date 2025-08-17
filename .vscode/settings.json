@@ -1,5 +1,5 @@
 {
-    "cmake.sourceDirectory": "F:/Course/CSE323/Project/resource_allocator_app/windows",
+    "cmake.sourceDirectory": "/home/peko75/Coding Den-Mobile/Resource-Allocator-App/linux",
     "dart.flutterHotReloadOnSave": "all",
     "dart.hotReloadOnSave": "all",
     "files.autoSave": "afterDelay",

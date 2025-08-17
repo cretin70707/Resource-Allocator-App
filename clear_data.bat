@@ -1,0 +1,1 @@
+adb shell pm clear com.example.resource_allocator_app

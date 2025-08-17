@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:resource_allocator_app/db_helper.dart';
 import 'package:resource_allocator_app/pages/home.dart';
+import 'package:resource_allocator_app/pages/admin.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -40,10 +41,18 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
   Future<void> _checkLoginStatus() async {
     final isLoggedIn = await _dbHelper.isUserLoggedIn();
     if (isLoggedIn && mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
-      );
+      final isAdmin = await _dbHelper.isCurrentUserAdmin();
+      if (isAdmin) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const AdminPage()),
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+      }
     }
   }
 
@@ -89,10 +98,19 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                   behavior: SnackBarBehavior.floating,
                 ),
               );
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const HomeScreen()),
-              );
+              
+              // Check if user is admin and redirect accordingly
+              if (user['priority'] == 0) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AdminPage()),
+                );
+              } else {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const HomeScreen()),
+                );
+              }
             }
           } else {
             if (mounted) {

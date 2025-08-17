@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:resource_allocator_app/pages/home.dart';
 import 'package:resource_allocator_app/pages/login.dart';
 import 'package:resource_allocator_app/pages/dashboard.dart';
+import 'package:resource_allocator_app/pages/admin.dart';
 
 void main() {
 
@@ -30,6 +31,7 @@ class ResourceAllocatorApp extends StatelessWidget {
         '/login': (context) => const AuthScreen(),
         '/dashboard': (context) => const DashboardPage(),
         '/home': (context) => const HomeScreen(),
+        '/admin': (context) => const AdminPage(),
       },
     );
   }

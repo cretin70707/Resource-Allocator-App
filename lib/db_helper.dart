@@ -33,9 +33,54 @@ class DatabaseHelper {
         name TEXT NOT NULL,
         email TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
+        priority INTEGER NOT NULL DEFAULT 1,
         created_at TEXT NOT NULL
       )
     ''');
+    
+    await db.execute('''
+      CREATE TABLE resources (
+        resource_id TEXT PRIMARY KEY,
+        resource_type TEXT NOT NULL,
+        total_quantity INTEGER NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE requests (
+        req_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        req_type TEXT NOT NULL,
+        
+      )
+    ''');
+    
+    
+    // Insert admin user with priority 0
+    await db.insert('users', {
+      'name': 'Admin',
+      'email': 'admin42@gmail.com',
+      'password': 'admin3107',
+      'priority': 0,
+      'created_at': DateTime.now().toIso8601String(),
+    });
+    
+    // Insert initial resources
+    await db.insert('resources', {
+      'resource_id': 'L',
+      'resource_type': 'Laptop',
+      'total_quantity': 5,
+    });
+    
+    await db.insert('resources', {
+      'resource_id': 'R',
+      'resource_type': 'Room',
+      'total_quantity': 5,
+    });
+    
+    await db.insert('resources', {
+      'resource_id': 'C',
+      'resource_type': 'Chair',
+      'total_quantity': 5,
+    });
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -75,10 +120,15 @@ class DatabaseHelper {
     }
     
     try {
+      // Get the next priority value
+      final maxPriorityResult = await db.rawQuery('SELECT COALESCE(MAX(priority), 0) + 1 as next_priority FROM users');
+      int nextPriority = maxPriorityResult.first['next_priority'] as int;
+      
       await db.insert('users', {
         'name': name,
         'email': email,
         'password': password,
+        'priority': nextPriority,
         'created_at': DateTime.now().toIso8601String(),
       });
       return true;
@@ -103,6 +153,7 @@ class DatabaseHelper {
     await prefs.setInt('user_id', user['id']);
     await prefs.setString('user_name', user['name']);
     await prefs.setString('user_email', user['email']);
+    await prefs.setInt('user_priority', user['priority']);
     await prefs.setBool('is_logged_in', true);
   }
 
@@ -121,7 +172,13 @@ class DatabaseHelper {
       'id': prefs.getInt('user_id'),
       'name': prefs.getString('user_name'),
       'email': prefs.getString('user_email'),
+      'priority': prefs.getInt('user_priority'),
     };
+  }
+
+  Future<bool> isCurrentUserAdmin() async {
+    final user = await getCurrentUser();
+    return user != null && user['priority'] == 0;
   }
 
   Future<void> logout() async {
@@ -137,10 +194,10 @@ class DatabaseHelper {
 
   Future<void> printAllUsers() async {
     final db = await database;
-    final users = await db.query('users');
+    final users = await db.query('users', orderBy: 'priority ASC');
     print('All users in database:');
     for (var user in users) {
-      print('ID: ${user['id']}, Name: ${user['name']}, Email: ${user['email']}, Created: ${user['created_at']}');
+      print('ID: ${user['id']}, Priority: ${user['priority']}, Name: ${user['name']}, Email: ${user['email']}, Created: ${user['created_at']}');
     }
   }
 
@@ -155,11 +212,27 @@ class DatabaseHelper {
     final userCount = await db.rawQuery('SELECT COUNT(*) as count FROM users');
     print('Total users: ${userCount.first['count']}');
     
+    // Get resource count
+    final resourceCount = await db.rawQuery('SELECT COUNT(*) as count FROM resources');
+    print('Total resources: ${resourceCount.first['count']}');
+    
     // Print database path
     await printDatabasePath();
     
     // Print all users
     await printAllUsers();
+    
+    // Print all resources
+    await printAllResources();
+  }
+
+  Future<void> printAllResources() async {
+    final db = await database;
+    final resources = await db.query('resources');
+    print('All resources in database:');
+    for (var resource in resources) {
+      print('ID: ${resource['resource_id']}, Type: ${resource['resource_type']}, Quantity: ${resource['total_quantity']}');
+    }
   }
 
   Future<List<Map<String, dynamic>>> getAllUsers() async {
@@ -170,6 +243,32 @@ class DatabaseHelper {
   Future<void> deleteUser(int userId) async {
     final db = await database;
     await db.delete('users', where: 'id = ?', whereArgs: [userId]);
+  }
+
+  // Resource management methods
+  Future<List<Map<String, dynamic>>> getAllResources() async {
+    final db = await database;
+    return await db.query('resources');
+  }
+
+  Future<Map<String, dynamic>?> getResource(String resourceId) async {
+    final db = await database;
+    final result = await db.query(
+      'resources',
+      where: 'resource_id = ?',
+      whereArgs: [resourceId],
+    );
+    return result.isNotEmpty ? result.first : null;
+  }
+
+  Future<void> updateResourceQuantity(String resourceId, int newQuantity) async {
+    final db = await database;
+    await db.update(
+      'resources',
+      {'total_quantity': newQuantity},
+      where: 'resource_id = ?',
+      whereArgs: [resourceId],
+    );
   }
 
   // Export database to Downloads folder for easy access
