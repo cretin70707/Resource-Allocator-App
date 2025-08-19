@@ -94,7 +94,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   },
                 ),
                 title: const Text('Shortest Job First (SJF)'),
-                subtitle: const Text('Orders by shortest burst time'),
+                subtitle: const Text('Orders by shortest duration'),
               ),
               ListTile(
                 leading: Radio<String>(
