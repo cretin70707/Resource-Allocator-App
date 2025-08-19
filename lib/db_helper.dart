@@ -371,38 +371,112 @@ class DatabaseHelper {
     return _generateScheduleFromRequests(requests);
   }
 
-  // SJF Scheduling Algorithm
+  // SJF Scheduling Algorithm (Non-preemptive)
   Future<List<Map<String, dynamic>>> generateSJFSchedule() async {
     final db = await database;
     
-    // Get all pending requests ordered by burst_time (SJF)
-    final requests = await db.rawQuery('''
+    // Get all pending requests
+    final allRequests = await db.rawQuery('''
       SELECT r.*, u.name as user_name, res.resource_type 
       FROM requests r
       JOIN users u ON r.user_id = u.id
       JOIN resources res ON r.resource_id = res.resource_id
       WHERE r.status = 'pending'
-      ORDER BY r.burst_time ASC, r.arrival_time ASC
+      ORDER BY r.arrival_time ASC
     ''');
     
-    return _generateScheduleFromRequests(requests);
+    if (allRequests.isEmpty) return [];
+    
+    List<Map<String, dynamic>> orderedRequests = [];
+    List<Map<String, dynamic>> availableRequests = List.from(allRequests);
+    int currentTime = 0; // Track execution progress
+    
+    while (availableRequests.isNotEmpty) {
+      // Find requests that have arrived by current time
+      List<Map<String, dynamic>> arrivedRequests = availableRequests
+          .where((req) => (req['arrival_time'] as int) <= currentTime + 1)
+          .toList();
+      
+      if (arrivedRequests.isEmpty) {
+        // No requests have arrived yet, advance time to next arrival
+        int nextArrival = availableRequests
+            .map((req) => req['arrival_time'] as int)
+            .reduce((a, b) => a < b ? a : b);
+        currentTime = nextArrival - 1;
+        continue;
+      }
+      
+      // Among arrived requests, pick the one with shortest burst time
+      arrivedRequests.sort((a, b) {
+        int burstCompare = (a['burst_time'] as int).compareTo(b['burst_time'] as int);
+        if (burstCompare != 0) return burstCompare;
+        // If burst times are equal, use arrival time as tiebreaker
+        return (a['arrival_time'] as int).compareTo(b['arrival_time'] as int);
+      });
+      
+      Map<String, dynamic> selectedRequest = arrivedRequests.first;
+      orderedRequests.add(selectedRequest);
+      availableRequests.remove(selectedRequest);
+      
+      // Advance current time by the burst time of executed process
+      currentTime += (selectedRequest['burst_time'] as int);
+    }
+    
+    return _generateScheduleFromRequests(orderedRequests);
   }
 
-  // Priority Scheduling Algorithm
+  // Priority Scheduling Algorithm (Non-preemptive)
   Future<List<Map<String, dynamic>>> generatePrioritySchedule() async {
     final db = await database;
     
-    // Get all pending requests ordered by priority (lower number = higher priority)
-    final requests = await db.rawQuery('''
+    // Get all pending requests
+    final allRequests = await db.rawQuery('''
       SELECT r.*, u.name as user_name, res.resource_type 
       FROM requests r
       JOIN users u ON r.user_id = u.id
       JOIN resources res ON r.resource_id = res.resource_id
       WHERE r.status = 'pending'
-      ORDER BY r.request_priority ASC, r.arrival_time ASC
+      ORDER BY r.arrival_time ASC
     ''');
     
-    return _generateScheduleFromRequests(requests);
+    if (allRequests.isEmpty) return [];
+    
+    List<Map<String, dynamic>> orderedRequests = [];
+    List<Map<String, dynamic>> availableRequests = List.from(allRequests);
+    int currentTime = 0; // Track execution progress
+    
+    while (availableRequests.isNotEmpty) {
+      // Find requests that have arrived by current time
+      List<Map<String, dynamic>> arrivedRequests = availableRequests
+          .where((req) => (req['arrival_time'] as int) <= currentTime + 1)
+          .toList();
+      
+      if (arrivedRequests.isEmpty) {
+        // No requests have arrived yet, advance time to next arrival
+        int nextArrival = availableRequests
+            .map((req) => req['arrival_time'] as int)
+            .reduce((a, b) => a < b ? a : b);
+        currentTime = nextArrival - 1;
+        continue;
+      }
+      
+      // Among arrived requests, pick the one with highest priority (lowest number)
+      arrivedRequests.sort((a, b) {
+        int priorityCompare = (a['request_priority'] as int).compareTo(b['request_priority'] as int);
+        if (priorityCompare != 0) return priorityCompare;
+        // If priorities are equal, use arrival time as tiebreaker
+        return (a['arrival_time'] as int).compareTo(b['arrival_time'] as int);
+      });
+      
+      Map<String, dynamic> selectedRequest = arrivedRequests.first;
+      orderedRequests.add(selectedRequest);
+      availableRequests.remove(selectedRequest);
+      
+      // Advance current time by the burst time of executed process
+      currentTime += (selectedRequest['burst_time'] as int);
+    }
+    
+    return _generateScheduleFromRequests(orderedRequests);
   }
 
   // Common scheduling logic for all algorithms
