@@ -21,10 +21,11 @@ The app allows users to request organizational resources (e.g., rooms, laptops, 
 -  **Reports**: Export schedule reports (PDF/CSV)  
 
 ---
-### Group Project for CSE323
-- **Members**
-Md. Asif Iqbal
-Fiad Sarowar
-Jobair Alam
-Rajib Rahman
+### Group Project for CSE323  
+
+**Members:**  
+- Md. Asif Iqbal  
+- Fiad Sarowar  
+- Jobair Alam  
+- Rajib Rahman  
 
