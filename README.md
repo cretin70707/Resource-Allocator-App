@@ -22,4 +22,9 @@ The app allows users to request organizational resources (e.g., rooms, laptops, 
 
 ---
 ### Group Project for CSE323
+**Members**
+Md. Asif Iqbal
+Fiad Sarowar
+Jobair Alam
+Rajib Rahman
 
