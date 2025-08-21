@@ -597,6 +597,23 @@ class DatabaseHelper {
   }
 
   // Export database to Downloads folder for easy access
+  // Delete all requests from the database
+  Future<void> deleteAllRequests() async {
+    final db = await database;
+    await db.delete('requests');
+  }
+
+  // Delete all entries from all tables (complete reset)
+  Future<void> deleteAllEntries() async {
+    final db = await database;
+    // Delete all requests first (due to foreign key constraints)
+    await db.delete('requests');
+    // Delete all resources (but keep admin user)
+    await db.delete('resources');
+    // Delete all users except admin (priority 0)
+    await db.delete('users', where: 'priority > ?', whereArgs: [0]);
+  }
+
   Future<String?> exportDatabase() async {
     try {
       // Get the current database file

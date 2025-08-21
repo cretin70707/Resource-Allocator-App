@@ -377,7 +377,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               child: Text(
                 userName.isNotEmpty 
-                    ? 'Welcome $userName, please choose a resource'
+                    ? 'Welcome "$userName", please choose a resource'
                     : 'Welcome, please choose a resource',
                 style: const TextStyle(
                   color: Colors.white,
