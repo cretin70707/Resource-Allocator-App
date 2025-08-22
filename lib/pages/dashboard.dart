@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:resource_allocator_app/db_helper.dart';
+import 'package:resource_allocator_app/pdf_logic.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -141,12 +142,7 @@ class _DashboardPageState extends State<DashboardPage> {
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('PDF export feature coming soon!'),
-                    backgroundColor: Colors.orange,
-                  ),
-                );
+                _exportToPDF();
               },
               child: const Text('Export as PDF'),
             ),
@@ -208,6 +204,58 @@ class _DashboardPageState extends State<DashboardPage> {
         SnackBar(
           content: Text('Error: ${e.toString()}'),
           backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _exportToPDF() async {
+    if (schedule.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No schedule data to export'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
+    try {
+      final exportPath = await PDFGenerator.exportScheduleToPDF(schedule, currentAlgorithm);
+      Navigator.pop(context); // Close loading dialog
+
+      if (exportPath != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('PDF exported successfully!\nFile: ${exportPath.split('/').last}\nUse: adb pull $exportPath ./'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to export PDF'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      Navigator.pop(context); // Close loading dialog
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('PDF Export Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
         ),
       );
     }

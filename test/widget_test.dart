@@ -11,20 +11,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:resource_allocator_app/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
+  testWidgets('Resource Allocator App smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(const ResourceAllocatorApp());
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Verify that the app loads with the login screen
+    expect(find.text('Resource Allocator'), findsOneWidget);
+    expect(find.text('Welcome back!'), findsOneWidget);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Verify that login form elements are present
+    expect(find.byType(TextFormField), findsWidgets);
+    expect(find.text('Login'), findsWidgets);
   });
 }
