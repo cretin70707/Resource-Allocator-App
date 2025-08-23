@@ -190,12 +190,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 ElevatedButton(
                   onPressed: () async {
-                    Navigator.of(context).pop();
-                    
                     // Get current user
                     final user = await _dbHelper.getCurrentUser();
                     if (user == null) return;
-                    
+
                     // Map resource type to resource ID
                     String resourceId;
                     switch (resourceType) {
@@ -211,7 +209,31 @@ class _HomeScreenState extends State<HomeScreen> {
                       default:
                         resourceId = 'L';
                     }
-                    
+
+                    // Check resource quantity before submitting
+                    final resource = await _dbHelper.getResource(resourceId);
+                    int available = resource?['total_quantity'] ?? 0;
+                    if (quantity > available) {
+                      // Show warning dialog
+                      if (mounted) {
+                        Navigator.of(context).pop();
+                        showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Not Enough Resources'),
+                            content: Text('Only $available $resourceType available. Please request $available or fewer.'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(),
+                                child: const Text('OK'),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      return;
+                    }
+
                     // Submit request to database
                     final success = await _dbHelper.createRequest(
                       user['id'],
@@ -219,7 +241,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       quantity,
                       durationHours,
                     );
-                    
+                    Navigator.of(context).pop();
                     if (success && mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(

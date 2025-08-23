@@ -298,18 +298,25 @@ class DatabaseHelper {
   // Request management methods
   Future<bool> createRequest(int userId, String resourceId, int quantity, int burstTime) async {
     final db = await database;
-    
     try {
       // Get user priority
       final user = await db.query('users', where: 'id = ?', whereArgs: [userId]);
       if (user.isEmpty) return false;
-      
       int userPriority = user.first['priority'] as int;
-      
+
+      // Check resource quantity
+      final resource = await db.query('resources', where: 'resource_id = ?', whereArgs: [resourceId]);
+      if (resource.isEmpty) return false;
+      int available = resource.first['total_quantity'] as int;
+      if (quantity > available) {
+        // Not enough resources
+        return false;
+      }
+
       // Get next arrival time (auto-increment)
       final maxArrivalResult = await db.rawQuery('SELECT COALESCE(MAX(arrival_time), 0) + 1 as next_arrival FROM requests');
       int nextArrival = maxArrivalResult.first['next_arrival'] as int;
-      
+
       // Insert the request
       await db.insert('requests', {
         'user_id': userId,
@@ -321,7 +328,6 @@ class DatabaseHelper {
         'status': 'pending',
         'created_at': DateTime.now().toIso8601String(),
       });
-      
       return true;
     } catch (e) {
       print('Error creating request: $e');
